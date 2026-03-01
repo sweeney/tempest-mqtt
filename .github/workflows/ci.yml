@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run go vet
+        run: |
+          VET_OUTPUT=$(go vet ./... 2>&1) || true
+          echo "$VET_OUTPUT"
+          if [ -n "$VET_OUTPUT" ]; then
+            echo "## ⚠️ Vet Warnings" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$VET_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Run tests with JSON output
+        run: |
+          set -o pipefail
+          go test -v -race -coverprofile=coverage.out -json ./... 2>&1 | tee test-results.json \
+            || echo "TEST_FAILED=true" >> $GITHUB_ENV
+
+      - name: Enforce 100% coverage on core logic packages
+        run: |
+          for pkg in internal/parser internal/event internal/daemon; do
+            go test -coverprofile=${pkg//\//_}.out ./$pkg/
+            COVERAGE=$(go tool cover -func=${pkg//\//_}.out | grep total | awk '{print $3}' | sed 's/%//')
+            echo "$pkg coverage: ${COVERAGE}%"
+            if [ "$(echo "$COVERAGE < 100" | bc)" -eq 1 ]; then
+              echo "ERROR: $pkg coverage must be 100%, got ${COVERAGE}%"
+              exit 1
+            fi
+          done
+
+      - name: Generate HTML coverage report
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
+          go tool cover -func=coverage.out > coverage.txt
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          PASSED=$(grep -c '"Action":"pass"' test-results.json 2>/dev/null || echo 0)
+          FAILED=$(grep -c '"Action":"fail"' test-results.json 2>/dev/null || echo 0)
+          SKIPPED=$(grep -c '"Action":"skip"' test-results.json 2>/dev/null || echo 0)
+
+          echo "| ✅ Passed | ❌ Failed | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "|:--------:|:--------:|:---------:|" >> $GITHUB_STEP_SUMMARY
+          echo "| $PASSED | $FAILED | $SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "<details open>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>❌ Failed Test Output</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            jq -r 'select(.Action=="output") | select(.Test != null) | .Output // empty' \
+              test-results.json 2>/dev/null | head -200 >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "## 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "**Overall Coverage: $TOTAL**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Coverage by Package" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          for pkg in internal/parser internal/event internal/daemon internal/listener internal/publisher; do
+            if go test -coverprofile=tmp.out ./$pkg/ 2>/dev/null; then
+              COV=$(go tool cover -func=tmp.out | grep total | awk '{print $3}' | tr -d '%')
+              if [ -n "$COV" ]; then
+                FILLED=$(echo "$COV / 10" | bc)
+                EMPTY=$((10 - FILLED))
+                BAR=""
+                for i in $(seq 1 $FILLED 2>/dev/null); do BAR+="█"; done
+                for i in $(seq 1 $EMPTY 2>/dev/null); do BAR+="░"; done
+                printf "%-30s %s %5.1f%%\n" "$pkg" "$BAR" "$COV" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>📋 Full Function Coverage</summary>" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          go tool cover -func=coverage.out >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>🐢 Slowest Tests (top 10)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
+          jq -r 'select(.Action=="pass" and .Test != null and .Elapsed != null) |
+            "\(.Package | split("/") | .[-1])/\(.Test)|\(.Elapsed)s"' \
+            test-results.json 2>/dev/null | sort -t'|' -k2 -rn | head -10 | \
+          while IFS='|' read test dur; do
+            echo "| \`$test\` | $dur |" >> $GITHUB_STEP_SUMMARY
+          done || true
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if tests failed
+        if: env.TEST_FAILED == 'true'
+        run: exit 1
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.html
+            coverage.txt
+          retention-days: 30
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: linux
+            goarch: arm
+            goarm: "6"
+            suffix: linux-armv6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          go build -ldflags="-s -w" -o tempest-mqtt-${{ matrix.suffix }} ./cmd/tempest-mqtt
+          chmod +x tempest-mqtt-${{ matrix.suffix }}
+
+      - name: Report binary size
+        run: |
+          SIZE=$(ls -lh tempest-mqtt-${{ matrix.suffix }} | awk '{print $5}')
+          SIZE_BYTES=$(ls -l tempest-mqtt-${{ matrix.suffix }} | awk '{print $5}')
+          echo "### 📦 Binary: \`${{ matrix.suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | **$SIZE** ($SIZE_BYTES bytes) |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tempest-mqtt-${{ matrix.suffix }}
+          path: tempest-mqtt-${{ matrix.suffix }}
+          retention-days: 90
