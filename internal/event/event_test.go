@@ -64,7 +64,7 @@ func unmarshalPayload(t *testing.T, e *event.Event, v any) {
 
 func TestFromMessage_RapidWind_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "rapid_wind.json"))
-	want := "climate/test/ST-00000001/wind/rapid"
+	want := "climate/test/wind/rapid"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -156,7 +156,7 @@ func TestFromMessage_HubStatus_Payload(t *testing.T) {
 
 func TestFromMessage_DeviceStatus_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "device_status.json"))
-	want := "climate/test/ST-00000001/status"
+	want := "climate/test/device/status"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -275,7 +275,7 @@ func TestFromMessage_ObsST_Topic(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("len(events) = %d, want 1", len(events))
 	}
-	want := "climate/test/ST-00000001/observation"
+	want := "climate/test/observation"
 	if events[0].Topic != want {
 		t.Errorf("Topic = %q, want %q", events[0].Topic, want)
 	}
@@ -401,7 +401,7 @@ func TestFromMessage_ObsST_BatchedYieldsMultipleEvents(t *testing.T) {
 
 func TestFromMessage_EvtPrecip_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "evt_precip.json"))
-	want := "climate/test/ST-00000001/event/rain"
+	want := "climate/test/event/rain"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -438,7 +438,7 @@ func TestFromMessage_EvtPrecip_Payload(t *testing.T) {
 
 func TestFromMessage_EvtStrike_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "evt_strike.json"))
-	want := "climate/test/ST-00000001/event/lightning"
+	want := "climate/test/event/lightning"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -502,10 +502,10 @@ func TestNewConverter_DifferentPrefixesProduceDifferentTopics(t *testing.T) {
 	if eventsA[0].Topic == eventsB[0].Topic {
 		t.Errorf("expected different topics for different prefixes, both got %q", eventsA[0].Topic)
 	}
-	if eventsA[0].Topic != "climate/home/ST-00000001/wind/rapid" {
-		t.Errorf("topic = %q, want climate/home/ST-00000001/wind/rapid", eventsA[0].Topic)
+	if eventsA[0].Topic != "climate/home/wind/rapid" {
+		t.Errorf("topic = %q, want climate/home/wind/rapid", eventsA[0].Topic)
 	}
-	if eventsB[0].Topic != "climate/garage/ST-00000001/wind/rapid" {
-		t.Errorf("topic = %q, want climate/garage/ST-00000001/wind/rapid", eventsB[0].Topic)
+	if eventsB[0].Topic != "climate/garage/wind/rapid" {
+		t.Errorf("topic = %q, want climate/garage/wind/rapid", eventsB[0].Topic)
 	}
 }

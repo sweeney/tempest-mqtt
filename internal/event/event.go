@@ -2,16 +2,15 @@
 //
 // Topic structure (prefix is set via NewConverter):
 //
-//	climate/{prefix}/status                        — hub health (~20s)
-//	climate/{prefix}/{sensor_sn}/status            — sensor health (~60s)
-//	climate/{prefix}/{sensor_sn}/wind/rapid        — rapid wind (~15s)
-//	climate/{prefix}/{sensor_sn}/observation       — full observation (~60s)
-//	climate/{prefix}/{sensor_sn}/event/rain        — precipitation started
-//	climate/{prefix}/{sensor_sn}/event/lightning   — lightning strike
+//	climate/{prefix}/status          — hub health (~20s)
+//	climate/{prefix}/device/status   — sensor health (~60s)
+//	climate/{prefix}/wind/rapid      — rapid wind (~15s)
+//	climate/{prefix}/observation     — full observation (~60s)
+//	climate/{prefix}/event/rain      — precipitation started
+//	climate/{prefix}/event/lightning — lightning strike
 //
 // All payloads are JSON objects with named fields (no positional arrays).
-// The hub_sn and sensor_sn are included in the JSON body for traceability;
-// only sensor_sn appears in the topic path.
+// hub_sn and sensor_sn are included in the JSON body for traceability.
 package event
 
 import (
@@ -86,7 +85,7 @@ func rapidWindEvent(m *parser.RapidWind, prefix string) (*Event, error) {
 		return nil, fmt.Errorf("marshal rapid_wind payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("climate/%s/%s/wind/rapid", prefix, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/wind/rapid", prefix),
 		Payload: payload,
 		QoS:     0,     // real-time; delivery not critical
 		Retain:  false, // high-frequency; no value in retaining stale wind
@@ -192,7 +191,7 @@ func deviceStatusEvent(m *parser.DeviceStatus, prefix string) (*Event, error) {
 		return nil, fmt.Errorf("marshal device_status payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("climate/%s/%s/status", prefix, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/device/status", prefix),
 		Payload: payload,
 		QoS:     1,
 		Retain:  true, // last known sensor state should persist for new subscribers
@@ -282,7 +281,7 @@ func singleObsEvent(hubSN, sensorSN, prefix string, obs []json.Number) (*Event, 
 		return nil, fmt.Errorf("marshal observation payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("climate/%s/%s/observation", prefix, sensorSN),
+		Topic:   fmt.Sprintf("climate/%s/observation", prefix),
 		Payload: payload,
 		QoS:     1,
 		Retain:  true, // current conditions should persist for new subscribers
@@ -309,7 +308,7 @@ func evtPrecipEvent(m *parser.EvtPrecip, prefix string) (*Event, error) {
 		return nil, fmt.Errorf("marshal evt_precip payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("climate/%s/%s/event/rain", prefix, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/event/rain", prefix),
 		Payload: payload,
 		QoS:     1,
 		Retain:  false, // transient event; no value retaining after rain stops
@@ -340,7 +339,7 @@ func evtStrikeEvent(m *parser.EvtStrike, prefix string) (*Event, error) {
 		return nil, fmt.Errorf("marshal evt_strike payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("climate/%s/%s/event/lightning", prefix, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/event/lightning", prefix),
 		Payload: payload,
 		QoS:     1,
 		Retain:  false, // transient event

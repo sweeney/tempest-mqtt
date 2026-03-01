@@ -66,7 +66,7 @@ func TestDaemon_RapidWind_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "climate/test/ST-00000001/wind/rapid"
+	want := "climate/test/wind/rapid"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -163,7 +163,7 @@ func TestDaemon_DeviceStatus_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "climate/test/ST-00000001/status"
+	want := "climate/test/device/status"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -204,7 +204,7 @@ func TestDaemon_ObsST_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "climate/test/ST-00000001/observation"
+	want := "climate/test/observation"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -281,7 +281,7 @@ func TestDaemon_EvtPrecip_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "climate/test/ST-00000001/event/rain"
+	want := "climate/test/event/rain"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -320,7 +320,7 @@ func TestDaemon_EvtStrike_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "climate/test/ST-00000001/event/lightning"
+	want := "climate/test/event/lightning"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -372,7 +372,7 @@ func TestDaemon_InvalidJSON_ContinuesProcessing(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1 (invalid JSON should be skipped)", len(msgs))
 	}
-	if msgs[0].Topic != "climate/test/ST-00000001/wind/rapid" {
+	if msgs[0].Topic != "climate/test/wind/rapid" {
 		t.Errorf("unexpected topic %q", msgs[0].Topic)
 	}
 }
@@ -428,12 +428,12 @@ func TestDaemon_MultipleMessages_AllProcessed(t *testing.T) {
 	}
 
 	wantTopics := []string{
-		"climate/test/ST-00000001/wind/rapid",
+		"climate/test/wind/rapid",
 		"climate/test/status",
-		"climate/test/ST-00000001/status",
-		"climate/test/ST-00000001/observation",
-		"climate/test/ST-00000001/event/rain",
-		"climate/test/ST-00000001/event/lightning",
+		"climate/test/device/status",
+		"climate/test/observation",
+		"climate/test/event/rain",
+		"climate/test/event/lightning",
 	}
 	for i, want := range wantTopics {
 		if msgs[i].Topic != want {
