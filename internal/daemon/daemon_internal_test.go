@@ -48,7 +48,7 @@ func TestDispatch_UnknownMessage_ReturnsError(t *testing.T) {
 	d := &Daemon{
 		publisher: &publisher.Fake{},
 		log:       discardLog(),
-		convert:   event.FromMessage,
+		convert:   event.NewConverter("test"),
 	}
 	err := d.dispatch(&unknownMessage{})
 	if err == nil {
@@ -74,7 +74,7 @@ func TestRun_DispatchError_LogsAndContinues(t *testing.T) {
 			if callCount == 1 {
 				return nil, fmt.Errorf("injected converter error")
 			}
-			return event.FromMessage(msg)
+			return event.NewConverter("test")(msg)
 		},
 	}
 

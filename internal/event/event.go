@@ -1,15 +1,17 @@
 // Package event converts parsed WeatherFlow Tempest messages into MQTT events.
 //
-// Topic structure:
+// Topic structure (prefix is set via NewConverter):
 //
-//	tempest/{hub_sn}/status                        — hub health (~20s)
-//	tempest/{hub_sn}/{sensor_sn}/status            — sensor health (~60s)
-//	tempest/{hub_sn}/{sensor_sn}/wind/rapid        — rapid wind (~15s)
-//	tempest/{hub_sn}/{sensor_sn}/observation       — full observation (~60s)
-//	tempest/{hub_sn}/{sensor_sn}/event/rain        — precipitation started
-//	tempest/{hub_sn}/{sensor_sn}/event/lightning   — lightning strike
+//	climate/{prefix}/status                        — hub health (~20s)
+//	climate/{prefix}/{sensor_sn}/status            — sensor health (~60s)
+//	climate/{prefix}/{sensor_sn}/wind/rapid        — rapid wind (~15s)
+//	climate/{prefix}/{sensor_sn}/observation       — full observation (~60s)
+//	climate/{prefix}/{sensor_sn}/event/rain        — precipitation started
+//	climate/{prefix}/{sensor_sn}/event/lightning   — lightning strike
 //
 // All payloads are JSON objects with named fields (no positional arrays).
+// The hub_sn and sensor_sn are included in the JSON body for traceability;
+// only sensor_sn appears in the topic path.
 package event
 
 import (
@@ -27,26 +29,33 @@ type Event struct {
 	Retain  bool
 }
 
-// FromMessage converts a parsed Tempest message into one or more MQTT events.
+// NewConverter returns a function that converts a parsed Tempest message into
+// one or more MQTT events with topics rooted at climate/{prefix}.
 // obs_st may yield multiple events when the hub batches observations.
-func FromMessage(msg parser.Message) ([]*Event, error) {
+func NewConverter(prefix string) func(parser.Message) ([]*Event, error) {
+	return func(msg parser.Message) ([]*Event, error) {
+		return convert(msg, prefix)
+	}
+}
+
+func convert(msg parser.Message, prefix string) ([]*Event, error) {
 	switch m := msg.(type) {
 	case *parser.RapidWind:
-		e, err := rapidWindEvent(m)
+		e, err := rapidWindEvent(m, prefix)
 		return []*Event{e}, err
 	case *parser.HubStatus:
-		e, err := hubStatusEvent(m)
+		e, err := hubStatusEvent(m, prefix)
 		return []*Event{e}, err
 	case *parser.DeviceStatus:
-		e, err := deviceStatusEvent(m)
+		e, err := deviceStatusEvent(m, prefix)
 		return []*Event{e}, err
 	case *parser.ObsST:
-		return obsSTEvents(m)
+		return obsSTEvents(m, prefix)
 	case *parser.EvtPrecip:
-		e, err := evtPrecipEvent(m)
+		e, err := evtPrecipEvent(m, prefix)
 		return []*Event{e}, err
 	case *parser.EvtStrike:
-		e, err := evtStrikeEvent(m)
+		e, err := evtStrikeEvent(m, prefix)
 		return []*Event{e}, err
 	default:
 		return nil, fmt.Errorf("event: unsupported message type %T", msg)
@@ -64,7 +73,7 @@ type RapidWindPayload struct {
 	SensorSN     string  `json:"sensor_sn"`
 }
 
-func rapidWindEvent(m *parser.RapidWind) (*Event, error) {
+func rapidWindEvent(m *parser.RapidWind, prefix string) (*Event, error) {
 	p := RapidWindPayload{
 		Timestamp:    m.Timestamp(),
 		SpeedMS:      m.SpeedMS(),
@@ -77,7 +86,7 @@ func rapidWindEvent(m *parser.RapidWind) (*Event, error) {
 		return nil, fmt.Errorf("marshal rapid_wind payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/%s/wind/rapid", m.HubSN, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/%s/wind/rapid", prefix, m.SerialNumber),
 		Payload: payload,
 		QoS:     0,     // real-time; delivery not critical
 		Retain:  false, // high-frequency; no value in retaining stale wind
@@ -97,7 +106,7 @@ type HubStatusPayload struct {
 	HubSN            string `json:"hub_sn"`
 }
 
-func hubStatusEvent(m *parser.HubStatus) (*Event, error) {
+func hubStatusEvent(m *parser.HubStatus, prefix string) (*Event, error) {
 	p := HubStatusPayload{
 		Timestamp:        m.Timestamp,
 		UptimeS:          m.Uptime,
@@ -112,7 +121,7 @@ func hubStatusEvent(m *parser.HubStatus) (*Event, error) {
 		return nil, fmt.Errorf("marshal hub_status payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/status", m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/status", prefix),
 		Payload: payload,
 		QoS:     1,
 		Retain:  true, // last known hub state should persist for new subscribers
@@ -164,7 +173,7 @@ type DeviceStatusPayload struct {
 	SensorSN         string       `json:"sensor_sn"`
 }
 
-func deviceStatusEvent(m *parser.DeviceStatus) (*Event, error) {
+func deviceStatusEvent(m *parser.DeviceStatus, prefix string) (*Event, error) {
 	p := DeviceStatusPayload{
 		Timestamp:        m.Timestamp,
 		UptimeS:          m.Uptime,
@@ -183,7 +192,7 @@ func deviceStatusEvent(m *parser.DeviceStatus) (*Event, error) {
 		return nil, fmt.Errorf("marshal device_status payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/%s/status", m.HubSN, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/%s/status", prefix, m.SerialNumber),
 		Payload: payload,
 		QoS:     1,
 		Retain:  true, // last known sensor state should persist for new subscribers
@@ -218,10 +227,10 @@ type ObservationPayload struct {
 	SensorSN            string  `json:"sensor_sn"`
 }
 
-func obsSTEvents(m *parser.ObsST) ([]*Event, error) {
+func obsSTEvents(m *parser.ObsST, prefix string) ([]*Event, error) {
 	events := make([]*Event, 0, len(m.Obs))
 	for i, obs := range m.Obs {
-		e, err := singleObsEvent(m.HubSN, m.SerialNumber, obs)
+		e, err := singleObsEvent(m.HubSN, m.SerialNumber, prefix, obs)
 		if err != nil {
 			return nil, fmt.Errorf("obs_st[%d]: %w", i, err)
 		}
@@ -230,7 +239,7 @@ func obsSTEvents(m *parser.ObsST) ([]*Event, error) {
 	return events, nil
 }
 
-func singleObsEvent(hubSN, sensorSN string, obs []json.Number) (*Event, error) {
+func singleObsEvent(hubSN, sensorSN, prefix string, obs []json.Number) (*Event, error) {
 	intAt := func(idx int) int {
 		v, _ := obs[idx].Int64()
 		return int(v)
@@ -273,7 +282,7 @@ func singleObsEvent(hubSN, sensorSN string, obs []json.Number) (*Event, error) {
 		return nil, fmt.Errorf("marshal observation payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/%s/observation", hubSN, sensorSN),
+		Topic:   fmt.Sprintf("climate/%s/%s/observation", prefix, sensorSN),
 		Payload: payload,
 		QoS:     1,
 		Retain:  true, // current conditions should persist for new subscribers
@@ -289,7 +298,7 @@ type EvtPrecipPayload struct {
 	SensorSN  string `json:"sensor_sn"`
 }
 
-func evtPrecipEvent(m *parser.EvtPrecip) (*Event, error) {
+func evtPrecipEvent(m *parser.EvtPrecip, prefix string) (*Event, error) {
 	p := EvtPrecipPayload{
 		Timestamp: m.Timestamp(),
 		HubSN:     m.HubSN,
@@ -300,7 +309,7 @@ func evtPrecipEvent(m *parser.EvtPrecip) (*Event, error) {
 		return nil, fmt.Errorf("marshal evt_precip payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/%s/event/rain", m.HubSN, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/%s/event/rain", prefix, m.SerialNumber),
 		Payload: payload,
 		QoS:     1,
 		Retain:  false, // transient event; no value retaining after rain stops
@@ -318,7 +327,7 @@ type EvtStrikePayload struct {
 	SensorSN   string `json:"sensor_sn"`
 }
 
-func evtStrikeEvent(m *parser.EvtStrike) (*Event, error) {
+func evtStrikeEvent(m *parser.EvtStrike, prefix string) (*Event, error) {
 	p := EvtStrikePayload{
 		Timestamp:  m.Timestamp(),
 		DistanceKM: m.DistanceKM(),
@@ -331,7 +340,7 @@ func evtStrikeEvent(m *parser.EvtStrike) (*Event, error) {
 		return nil, fmt.Errorf("marshal evt_strike payload: %w", err)
 	}
 	return &Event{
-		Topic:   fmt.Sprintf("tempest/%s/%s/event/lightning", m.HubSN, m.SerialNumber),
+		Topic:   fmt.Sprintf("climate/%s/%s/event/lightning", prefix, m.SerialNumber),
 		Payload: payload,
 		QoS:     1,
 		Retain:  false, // transient event

@@ -11,6 +11,13 @@ import (
 	"github.com/sweeney/tempest-mqtt/internal/parser"
 )
 
+// testPrefix is the topic prefix used across all event tests.
+// Resulting topics take the form climate/test/...
+const testPrefix = "test"
+
+// testConverter is a reusable converter wired to testPrefix.
+var testConverter = event.NewConverter(testPrefix)
+
 func fixtureDir() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "tests", "fixtures")
@@ -36,12 +43,12 @@ func parseFixture(t *testing.T, name string) parser.Message {
 
 func singleEvent(t *testing.T, msg parser.Message) *event.Event {
 	t.Helper()
-	events, err := event.FromMessage(msg)
+	events, err := testConverter(msg)
 	if err != nil {
-		t.Fatalf("FromMessage() error = %v", err)
+		t.Fatalf("converter() error = %v", err)
 	}
 	if len(events) != 1 {
-		t.Fatalf("FromMessage() returned %d events, want 1", len(events))
+		t.Fatalf("converter() returned %d events, want 1", len(events))
 	}
 	return events[0]
 }
@@ -57,7 +64,7 @@ func unmarshalPayload(t *testing.T, e *event.Event, v any) {
 
 func TestFromMessage_RapidWind_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "rapid_wind.json"))
-	want := "tempest/HB-00000001/ST-00000001/wind/rapid"
+	want := "climate/test/ST-00000001/wind/rapid"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -100,7 +107,7 @@ func TestFromMessage_RapidWind_Payload(t *testing.T) {
 
 func TestFromMessage_HubStatus_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "hub_status.json"))
-	want := "tempest/HB-00000001/status"
+	want := "climate/test/status"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -149,7 +156,7 @@ func TestFromMessage_HubStatus_Payload(t *testing.T) {
 
 func TestFromMessage_DeviceStatus_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "device_status.json"))
-	want := "tempest/HB-00000001/ST-00000001/status"
+	want := "climate/test/ST-00000001/status"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -261,21 +268,21 @@ func TestFromMessage_DeviceStatus_SensorFaults_LightningNoise(t *testing.T) {
 // --- ObsST ---
 
 func TestFromMessage_ObsST_Topic(t *testing.T) {
-	events, err := event.FromMessage(parseFixture(t, "obs_st.json"))
+	events, err := testConverter(parseFixture(t, "obs_st.json"))
 	if err != nil {
-		t.Fatalf("FromMessage() error = %v", err)
+		t.Fatalf("converter() error = %v", err)
 	}
 	if len(events) != 1 {
 		t.Fatalf("len(events) = %d, want 1", len(events))
 	}
-	want := "tempest/HB-00000001/ST-00000001/observation"
+	want := "climate/test/ST-00000001/observation"
 	if events[0].Topic != want {
 		t.Errorf("Topic = %q, want %q", events[0].Topic, want)
 	}
 }
 
 func TestFromMessage_ObsST_QoS(t *testing.T) {
-	events, _ := event.FromMessage(parseFixture(t, "obs_st.json"))
+	events, _ := testConverter(parseFixture(t, "obs_st.json"))
 	e := events[0]
 	if e.QoS != 1 {
 		t.Errorf("QoS = %d, want 1", e.QoS)
@@ -286,7 +293,7 @@ func TestFromMessage_ObsST_QoS(t *testing.T) {
 }
 
 func TestFromMessage_ObsST_Payload_AllFields(t *testing.T) {
-	events, _ := event.FromMessage(parseFixture(t, "obs_st.json"))
+	events, _ := testConverter(parseFixture(t, "obs_st.json"))
 	var p event.ObservationPayload
 	unmarshalPayload(t, events[0], &p)
 
@@ -335,9 +342,9 @@ func TestFromMessage_ObsST_PrecipType_Rain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parser.Parse: %v", err)
 	}
-	events, err := event.FromMessage(msg)
+	events, err := testConverter(msg)
 	if err != nil {
-		t.Fatalf("FromMessage: %v", err)
+		t.Fatalf("converter: %v", err)
 	}
 	var p event.ObservationPayload
 	unmarshalPayload(t, events[0], &p)
@@ -366,9 +373,9 @@ func TestFromMessage_ObsST_BatchedYieldsMultipleEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parser.Parse: %v", err)
 	}
-	events, err := event.FromMessage(msg)
+	events, err := testConverter(msg)
 	if err != nil {
-		t.Fatalf("FromMessage: %v", err)
+		t.Fatalf("converter: %v", err)
 	}
 	if len(events) != 2 {
 		t.Fatalf("len(events) = %d, want 2", len(events))
@@ -394,7 +401,7 @@ func TestFromMessage_ObsST_BatchedYieldsMultipleEvents(t *testing.T) {
 
 func TestFromMessage_EvtPrecip_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "evt_precip.json"))
-	want := "tempest/HB-00000001/ST-00000001/event/rain"
+	want := "climate/test/ST-00000001/event/rain"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -431,7 +438,7 @@ func TestFromMessage_EvtPrecip_Payload(t *testing.T) {
 
 func TestFromMessage_EvtStrike_Topic(t *testing.T) {
 	e := singleEvent(t, parseFixture(t, "evt_strike.json"))
-	want := "tempest/HB-00000001/ST-00000001/event/lightning"
+	want := "climate/test/ST-00000001/event/lightning"
 	if e.Topic != want {
 		t.Errorf("Topic = %q, want %q", e.Topic, want)
 	}
@@ -472,14 +479,33 @@ func TestFromMessage_EvtStrike_Payload(t *testing.T) {
 
 // --- Unsupported type ---
 
-// fakeMessage is a parser.Message type not handled by FromMessage.
+// fakeMessage is a parser.Message type not handled by NewConverter.
 type fakeMessage struct{}
 
 func (f *fakeMessage) Type() string { return "fake" }
 
 func TestFromMessage_UnsupportedType(t *testing.T) {
-	_, err := event.FromMessage(&fakeMessage{})
+	_, err := testConverter(&fakeMessage{})
 	if err == nil {
-		t.Fatal("FromMessage() expected error for unsupported type, got nil")
+		t.Fatal("converter() expected error for unsupported type, got nil")
+	}
+}
+
+// --- Prefix isolation ---
+
+func TestNewConverter_DifferentPrefixesProduceDifferentTopics(t *testing.T) {
+	msg := parseFixture(t, "rapid_wind.json")
+
+	eventsA, _ := event.NewConverter("home")(msg)
+	eventsB, _ := event.NewConverter("garage")(msg)
+
+	if eventsA[0].Topic == eventsB[0].Topic {
+		t.Errorf("expected different topics for different prefixes, both got %q", eventsA[0].Topic)
+	}
+	if eventsA[0].Topic != "climate/home/ST-00000001/wind/rapid" {
+		t.Errorf("topic = %q, want climate/home/ST-00000001/wind/rapid", eventsA[0].Topic)
+	}
+	if eventsB[0].Topic != "climate/garage/ST-00000001/wind/rapid" {
+		t.Errorf("topic = %q, want climate/garage/ST-00000001/wind/rapid", eventsB[0].Topic)
 	}
 }

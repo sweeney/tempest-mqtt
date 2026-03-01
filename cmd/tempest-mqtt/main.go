@@ -37,12 +37,13 @@ func main() {
 }
 
 func run() error {
-	brokerURL := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
-	clientID  := flag.String("client-id", "tempest-mqtt", "MQTT client ID")
-	username  := flag.String("username", "", "MQTT username")
-	password  := flag.String("password", "", "MQTT password")
-	udpPort   := flag.Int("udp-port", 50222, "UDP port for WeatherFlow hub broadcasts")
-	logLevel  := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
+	brokerURL   := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
+	clientID    := flag.String("client-id", "tempest-mqtt", "MQTT client ID")
+	username    := flag.String("username", "", "MQTT username")
+	password    := flag.String("password", "", "MQTT password")
+	topicPrefix := flag.String("topic-prefix", "tempest", "MQTT topic prefix (topics: climate/{prefix}/...)")
+	udpPort     := flag.Int("udp-port", 50222, "UDP port for WeatherFlow hub broadcasts")
+	logLevel    := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
 
 	log := newLogger(*logLevel)
@@ -50,6 +51,7 @@ func run() error {
 	log.Info("starting tempest-mqtt",
 		slog.String("broker", *brokerURL),
 		slog.String("client_id", *clientID),
+		slog.String("topic_prefix", *topicPrefix),
 		slog.Int("udp_port", *udpPort),
 	)
 
@@ -74,7 +76,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	d := daemon.New(l, p, log)
+	d := daemon.New(l, p, log, *topicPrefix)
 	if err := d.Run(ctx); err != nil && err != context.Canceled {
 		return fmt.Errorf("daemon: %w", err)
 	}

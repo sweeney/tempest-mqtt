@@ -14,7 +14,7 @@ import (
 	"github.com/sweeney/tempest-mqtt/internal/publisher"
 )
 
-// convertFn is the signature of event.FromMessage. Stored as a field to allow
+// convertFn is the signature of event.NewConverter. Stored as a field to allow
 // injection of a stub in tests without complicating the public API.
 type convertFn func(parser.Message) ([]*event.Event, error)
 
@@ -23,16 +23,17 @@ type Daemon struct {
 	listener  listener.Listener
 	publisher publisher.Publisher
 	log       *slog.Logger
-	convert   convertFn // defaults to event.FromMessage
+	convert   convertFn // defaults to event.NewConverter(topicPrefix)
 }
 
-// New creates a Daemon that reads from l and publishes via p.
-func New(l listener.Listener, p publisher.Publisher, log *slog.Logger) *Daemon {
+// New creates a Daemon that reads from l, publishes via p, and roots all MQTT
+// topics at climate/{topicPrefix}.
+func New(l listener.Listener, p publisher.Publisher, log *slog.Logger, topicPrefix string) *Daemon {
 	return &Daemon{
 		listener:  l,
 		publisher: p,
 		log:       log,
-		convert:   event.FromMessage,
+		convert:   event.NewConverter(topicPrefix),
 	}
 }
 

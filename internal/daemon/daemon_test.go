@@ -35,6 +35,10 @@ func loadFixture(t *testing.T, name string) []byte {
 	return data
 }
 
+// testPrefix is the topic prefix used across all daemon tests.
+// Resulting topics take the form climate/test/...
+const testPrefix = "test"
+
 // runDaemon sends messages through the daemon and returns the published MQTT messages.
 // It cancels the daemon context after the fake listener is drained.
 func runDaemon(t *testing.T, messages ...[]byte) []publisher.Message {
@@ -42,7 +46,7 @@ func runDaemon(t *testing.T, messages ...[]byte) []publisher.Message {
 
 	l := listener.NewFake(messages...)
 	pub := &publisher.Fake{}
-	d := daemon.New(l, pub, discardLogger())
+	d := daemon.New(l, pub, discardLogger(), testPrefix)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -62,7 +66,7 @@ func TestDaemon_RapidWind_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/ST-00000001/wind/rapid"
+	want := "climate/test/ST-00000001/wind/rapid"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -109,7 +113,7 @@ func TestDaemon_HubStatus_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/status"
+	want := "climate/test/status"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -159,7 +163,7 @@ func TestDaemon_DeviceStatus_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/ST-00000001/status"
+	want := "climate/test/ST-00000001/status"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -200,7 +204,7 @@ func TestDaemon_ObsST_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/ST-00000001/observation"
+	want := "climate/test/ST-00000001/observation"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -277,7 +281,7 @@ func TestDaemon_EvtPrecip_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/ST-00000001/event/rain"
+	want := "climate/test/ST-00000001/event/rain"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -316,7 +320,7 @@ func TestDaemon_EvtStrike_PublishesToCorrectTopic(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1", len(msgs))
 	}
-	want := "tempest/HB-00000001/ST-00000001/event/lightning"
+	want := "climate/test/ST-00000001/event/lightning"
 	if msgs[0].Topic != want {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, want)
 	}
@@ -368,7 +372,7 @@ func TestDaemon_InvalidJSON_ContinuesProcessing(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1 (invalid JSON should be skipped)", len(msgs))
 	}
-	if msgs[0].Topic != "tempest/HB-00000001/ST-00000001/wind/rapid" {
+	if msgs[0].Topic != "climate/test/ST-00000001/wind/rapid" {
 		t.Errorf("unexpected topic %q", msgs[0].Topic)
 	}
 }
@@ -382,7 +386,7 @@ func TestDaemon_UnknownMessageType_ContinuesProcessing(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("got %d messages, want 1 (unknown type should be skipped)", len(msgs))
 	}
-	if msgs[0].Topic != "tempest/HB-00000001/status" {
+	if msgs[0].Topic != "climate/test/status" {
 		t.Errorf("unexpected topic %q", msgs[0].Topic)
 	}
 }
@@ -394,7 +398,7 @@ func TestDaemon_PublishError_ContinuesProcessing(t *testing.T) {
 		loadFixture(t, "hub_status.json"),
 	)
 	pub := publisher.NewFakeWithError(fmt.Errorf("broker unavailable"))
-	d := daemon.New(l, pub, discardLogger())
+	d := daemon.New(l, pub, discardLogger(), testPrefix)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -424,12 +428,12 @@ func TestDaemon_MultipleMessages_AllProcessed(t *testing.T) {
 	}
 
 	wantTopics := []string{
-		"tempest/HB-00000001/ST-00000001/wind/rapid",
-		"tempest/HB-00000001/status",
-		"tempest/HB-00000001/ST-00000001/status",
-		"tempest/HB-00000001/ST-00000001/observation",
-		"tempest/HB-00000001/ST-00000001/event/rain",
-		"tempest/HB-00000001/ST-00000001/event/lightning",
+		"climate/test/ST-00000001/wind/rapid",
+		"climate/test/status",
+		"climate/test/ST-00000001/status",
+		"climate/test/ST-00000001/observation",
+		"climate/test/ST-00000001/event/rain",
+		"climate/test/ST-00000001/event/lightning",
 	}
 	for i, want := range wantTopics {
 		if msgs[i].Topic != want {
@@ -440,7 +444,7 @@ func TestDaemon_MultipleMessages_AllProcessed(t *testing.T) {
 
 func TestDaemon_ContextCancel_ReturnsContextError(t *testing.T) {
 	l := listener.NewFake() // no messages; blocks immediately
-	d := daemon.New(l, &publisher.Fake{}, discardLogger())
+	d := daemon.New(l, &publisher.Fake{}, discardLogger(), testPrefix)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
