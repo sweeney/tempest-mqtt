@@ -1,0 +1,198 @@
+UDP Basics
+The Tempest's Weather System hub broadcasts UDP messages over port 50222 on the local network. The current production hub firmware version is 171.
+
+Messages
+Rain Start Event
+JSON
+
+{
+	  "serial_number": "SK-00008453",
+	  "type":"evt_precip",
+	  "hub_sn": "HB-00000001",
+	  "evt":[1493322445]
+}
+evt Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+Lightning Strike Event
+JSON
+
+{
+	  "serial_number": "AR-00004049",
+	  "type":"evt_strike",
+	  "hub_sn": "HB-00000001",
+	  "evt":[1493322445,27,3848]
+}
+evt Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+1	distance	km
+2	energy	
+Rapid Wind
+JSON
+
+{
+	  "serial_number": "SK-00008453",
+	  "type":"rapid_wind",
+	  "hub_sn": "HB-00000001",
+	  "ob":[1493322445,2.3,128]
+}
+ob Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+1	wind speed	m/s
+2	wind direction	degrees
+Tempest Observation
+JSON
+
+{
+        "serial_number": "ST-00000512",
+        "type": "obs_st",
+        "hub_sn": "HB-00013030",
+        "obs": [[1588948614,0.18,0.22,0.27,144,6,1017.57,22.37,50.26,328,0.03,3,0.000000,0,0,0,2.410,1]],
+        "firmware_revision": 129
+}
+obs Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+1	wind lull	m/s
+2	wind average	m/s
+3	wind gust	m/s
+4	wind direction	degrees
+5	wind sample interval	seconds
+6	station pressure	mb
+7	air temperature	c
+8	relative humidity	%
+9	illuminance	lux
+10	UV	index
+11	solar radiation	W/m²
+12	rain accumulation over the previous minute	mm
+13	precipitation type	0 = none, 1 = rain, 2 = hail, 3 = rain + hail (experimental)
+14	lightning strike average distance	km
+15	lightning strike count	
+16	battery	volts
+17	reporting interval	minutes
+AIR Observation
+JSON
+
+{
+	  "serial_number": "AR-00004049",
+	  "type":"obs_air",
+	  "hub_sn": "HB-00000001",
+	  "obs":[[1493164835,835.0,10.0,45,0,0,3.46,1]],
+	  "firmware_revision": 17
+}
+obs Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+1	station pressure	mb
+2	air temperature	c
+3	relative humidity	%
+4	lightning strike count	
+5	lightning strike avg distance	km
+6	battery	volts
+7	report interval	minutes
+SKY Observation
+JSON
+
+{
+	  "serial_number": "SK-00008453",
+	  "type":"obs_sky",
+	  "hub_sn": "HB-00000001",
+	  "obs":[[1493321340,9000,10,0.0,2.6,4.6,7.4,187,3.12,1,130,null,0,3]],
+	  "firmware_revision": 29
+}
+obs Description
+Index	Field	Units
+0	timestamp (Epoch, UTC)	seconds
+1	illuminance	lux
+2	UV	index
+3	rain accumulation over the previous minute	mm
+4	wind lull	m/s
+5	wind average	m/s
+6	wind gust	m/s
+7	wind direction	degrees
+8	battery	volts
+9	report interval	minutes
+10	solar radiation	W/m²
+11	local day rain accumulation*	mm
+12	precipitation type	0 = none, 1 = rain, 2 = hail, 3 = rain + hail (experimental)
+13	wind sample interval	seconds
+* SKY observations broadcast over UDP do not return local rain accumulation. This field will always be null. Rain accumulation data is available from the Tempest REST API.
+
+Device Status
+JSON
+
+{
+	  "serial_number": "AR-00004049",
+	  "type": "device_status",
+	  "hub_sn": "HB-00000001",
+	  "timestamp": 1510855923,
+	  "uptime": 2189,
+	  "voltage": 3.50,
+	  "firmware_revision": 17,
+	  "rssi": -17,
+	  "hub_rssi": -87,
+	  "sensor_status": 0,
+	  "debug": 0
+}
+sensor_status Description
+Any bits above 0b100000000 are reserved for internal use and should be ignored
+
+Binary Value	Device	Description
+0b000000000	Tempest, AIR, SKY	Sensors OK
+0b000000001	Tempest, AIR	lightning failed
+0b000000010	Tempest, AIR	lightning noise
+0b000000100	Tempest, AIR	lightning disturber
+0b000001000	Tempest, AIR	pressure failed
+0b000010000	Tempest, AIR	temperature failed
+0b000100000	Tempest, AIR	rh failed
+0b001000000	Tempest, SKY	wind failed
+0b010000000	Tempest, SKY	precip failed
+0b100000000	Tempest, SKY	light/UV failed
+0x00008000	Tempest	power booster depleted
+0x00000200	Tempest	power boosted detected
+0x00010000	Tempest	power booster shore power
+debug Description
+Value	Description
+0	Debugging is disabled
+1	Debugging is enabled
+Hub Status
+fs and mqtt_stats are reserved for internal use only.
+
+JSON
+
+{
+	  "serial_number":"HB-00000001",
+	  "type":"hub_status",
+	  "firmware_revision":"35",
+	  "uptime":1670133,
+	  "rssi":-62,
+	  "timestamp":1495724691,
+	  "reset_flags": "BOR,PIN,POR",
+	  "seq": 48,
+	  "fs": [1, 0, 15675411, 524288],
+          "radio_stats": [2, 1, 0, 3, 2839],
+          "mqtt_stats": [1, 0]
+}
+reset_flags Description
+Value	Description
+BOR	brownout reset
+PIN	pin reset
+POR	power reset
+SFT	software reset
+WDG	watchdog reset
+WWD	window watchdog reset
+LPW	low power reset
+HRDFLT	hard fault detected
+radio_stats Description
+Index	Field
+0	version
+1	reboot count
+2	I2C bus error count
+3	radio status (0 = radio off, 1 = radio on, 3 = radio active, 7 = BLE connected)
+4	radio network ID
+Updated about 1 year ago
+
+Forecast
+Did this page help you?
