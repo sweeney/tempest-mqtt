@@ -381,6 +381,50 @@ func TestPrecipTypeString(t *testing.T) {
 	}
 }
 
+// --- unmarshal error paths (type-correct probe, malformed payload) ---
+
+func TestParse_RapidWind_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"rapid_wind","ob":"not-an-array"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed rapid_wind payload, got nil")
+	}
+}
+
+func TestParse_HubStatus_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"hub_status","uptime":"not-a-number"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed hub_status payload, got nil")
+	}
+}
+
+func TestParse_DeviceStatus_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"device_status","voltage":"not-a-number"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed device_status payload, got nil")
+	}
+}
+
+func TestParse_ObsST_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"obs_st","obs":"not-an-array"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed obs_st payload, got nil")
+	}
+}
+
+func TestParse_EvtPrecip_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"evt_precip","evt":"not-an-array"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed evt_precip payload, got nil")
+	}
+}
+
+func TestParse_EvtStrike_MalformedPayload(t *testing.T) {
+	_, err := parser.Parse([]byte(`{"type":"evt_strike","evt":"not-an-array"}`))
+	if err == nil {
+		t.Fatal("expected error for malformed evt_strike payload, got nil")
+	}
+}
+
 // --- helpers ---
 
 func checkNumber(t *testing.T, n interface{ Int64() (int64, error) }, want int64, name string) {
