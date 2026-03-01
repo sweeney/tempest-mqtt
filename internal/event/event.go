@@ -20,6 +20,10 @@ import (
 	"github.com/sweeney/tempest-mqtt/internal/parser"
 )
 
+// jsonMarshal is the JSON marshalling function used by all event builders.
+// Tests may replace it to exercise error paths.
+var jsonMarshal = json.Marshal
+
 // Event is an MQTT message ready to publish.
 type Event struct {
 	Topic   string
@@ -80,7 +84,7 @@ func rapidWindEvent(m *parser.RapidWind, prefix string) (*Event, error) {
 		HubSN:        m.HubSN,
 		SensorSN:     m.SerialNumber,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal rapid_wind payload: %w", err)
 	}
@@ -115,7 +119,7 @@ func hubStatusEvent(m *parser.HubStatus, prefix string) (*Event, error) {
 		Seq:              m.Seq,
 		HubSN:            m.SerialNumber,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal hub_status payload: %w", err)
 	}
@@ -186,7 +190,7 @@ func deviceStatusEvent(m *parser.DeviceStatus, prefix string) (*Event, error) {
 		HubSN:            m.HubSN,
 		SensorSN:         m.SerialNumber,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal device_status payload: %w", err)
 	}
@@ -276,7 +280,7 @@ func singleObsEvent(hubSN, sensorSN, prefix string, obs []json.Number) (*Event, 
 		HubSN:               hubSN,
 		SensorSN:            sensorSN,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal observation payload: %w", err)
 	}
@@ -303,7 +307,7 @@ func evtPrecipEvent(m *parser.EvtPrecip, prefix string) (*Event, error) {
 		HubSN:     m.HubSN,
 		SensorSN:  m.SerialNumber,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal evt_precip payload: %w", err)
 	}
@@ -334,7 +338,7 @@ func evtStrikeEvent(m *parser.EvtStrike, prefix string) (*Event, error) {
 		HubSN:      m.HubSN,
 		SensorSN:   m.SerialNumber,
 	}
-	payload, err := json.Marshal(p)
+	payload, err := jsonMarshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal evt_strike payload: %w", err)
 	}
