@@ -1,0 +1,11 @@
+# Build artefacts
+tempest-mqtt
+tempest-mqtt-linux-*
+
+# Test coverage artefacts
+*.out
+coverage.html
+
+# Environment / secrets
+.env
+tempest-mqtt.env
