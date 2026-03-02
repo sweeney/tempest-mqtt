@@ -1,0 +1,24 @@
+{
+  "serial_number": "HB-00000001",
+  "type": "hub_status",
+  "firmware_revision": "309",
+  "uptime": 67090,
+  "rssi": -76,
+  "timestamp": 1772442934,
+  "reset_flags": "POR",
+  "seq": 3534,
+  "radio_stats": [
+    28,
+    1,
+    0,
+    2,
+    18704
+  ],
+  "mqtt_stats": [
+    2,
+    0
+  ],
+  "freq": 863400000,
+  "hw_version": 2,
+  "hardware_id": 0
+}

@@ -1,38 +1,25 @@
 [Unit]
 Description=WeatherFlow Tempest to MQTT Daemon
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
-# Optional: place config in /etc/tempest-mqtt.env
+# Config file: ~/.config/tempest-mqtt.env
 # MQTT_USERNAME=myuser
 # MQTT_PASSWORD=secret
 # TOPIC_PREFIX=home          # → topics: climate/home/...
-EnvironmentFile=-/etc/tempest-mqtt.env
-ExecStart=/usr/local/bin/tempest-mqtt \
-    -broker ${MQTT_BROKER_URL:-tcp://localhost:1883} \
-    -client-id ${MQTT_CLIENT_ID:-tempest-mqtt} \
-    -username ${MQTT_USERNAME:-} \
-    -password ${MQTT_PASSWORD:-} \
-    -topic-prefix ${TOPIC_PREFIX:-tempest} \
-    -udp-port ${TEMPEST_UDP_PORT:-50222} \
-    -log-level ${LOG_LEVEL:-info}
+EnvironmentFile=-%h/.config/tempest-mqtt.env
+ExecStart=%h/tempest-mqtt/tempest-mqtt \
+    -broker ${MQTT_BROKER_URL} \
+    -client-id ${MQTT_CLIENT_ID} \
+    -username ${MQTT_USERNAME} \
+    -password ${MQTT_PASSWORD} \
+    -topic-prefix ${TOPIC_PREFIX} \
+    -udp-port ${TEMPEST_UDP_PORT} \
+    -log-level ${LOG_LEVEL}
 Restart=on-failure
 RestartSec=5
-# Allow time for MQTT last-will to publish on clean shutdown
 TimeoutStopSec=10
 
-# Hardening
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictNamespaces=true
-LockPersonality=true
-
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
