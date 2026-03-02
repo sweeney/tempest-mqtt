@@ -10,6 +10,7 @@ Tempest Hub  →  UDP :50222  →  tempest-mqtt  →  MQTT broker  →  your hom
 
 ## Contents
 
+- [Detailed project & protocol walkthroughs](#detailed-project--protocol-walkthroughs)
 - [How it works](#how-it-works)
 - [MQTT topics and payloads](#mqtt-topics-and-payloads)
 - [Configuration](#configuration)
@@ -18,6 +19,13 @@ Tempest Hub  →  UDP :50222  →  tempest-mqtt  →  MQTT broker  →  your hom
 - [Building](#building)
 - [Architecture](#architecture)
 - [CI](#ci)
+
+---
+
+## Detailed project & protocol walkthroughs
+
+- **[docs/walkthrough.md](docs/walkthrough.md)** — a layer-by-layer code walkthrough: entry point, listener, parser, event converter, daemon, publisher, and testing strategy.
+- **[docs/protocol/walkthrough.md](docs/protocol/walkthrough.md)** — an annotated walkthrough of the WeatherFlow Tempest UDP protocol built from live captured data, with notes on message timing, field encoding, and sensor status bitmasks.
 
 ---
 
@@ -316,3 +324,4 @@ Rapid wind arrives every 15 seconds. If one message is lost it is replaced by th
 ### Why not retained for rain / lightning events
 
 Retaining `evt_precip` or `evt_strike` would cause any new subscriber to immediately receive the last event — which could be days old — with no way to distinguish it from a current event. Events are inherently point-in-time, not state.
+
