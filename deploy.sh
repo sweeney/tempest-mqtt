@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Usage: ./deploy.sh [user@host]
 #
-# Deploys tempest-mqtt as a systemd USER service (no sudo required).
+# Deploys tempest-mqtt as a systemd USER service (no sudo required). Used for
+# home on garibaldi; other sites use deploy/deploy.sh (a system service).
 # The binary runs as the logged-in user; config lives in ~/.config/tempest-mqtt.env
 #
 # One-time bootstrap (run once on the remote host to survive reboots):

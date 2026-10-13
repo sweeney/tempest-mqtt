@@ -1,0 +1,37 @@
+[Unit]
+Description=WeatherFlow Tempest to MQTT Daemon
+# mosquitto: the local broker it publishes to on a site's Pi. tailscaled: for a
+# broker reached over the tailnet. Both are ordering only (absent units are
+# ignored); a broker that is late is covered by the restart below.
+After=network-online.target mosquitto.service tailscaled.service
+Wants=network-online.target
+# Never stop retrying: if the broker is down at boot, the daemon exits after
+# its 10 s connect timeout and is restarted until the broker is back.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# Installed by deploy/deploy.sh from configs/<site>.env; kept across upgrades.
+EnvironmentFile=/etc/tempest-mqtt/tempest-mqtt.env
+ExecStart=/usr/local/bin/tempest-mqtt \
+    -broker ${MQTT_BROKER_URL} \
+    -client-id ${MQTT_CLIENT_ID} \
+    -username ${MQTT_USERNAME} \
+    -password ${MQTT_PASSWORD} \
+    -topic-prefix ${TOPIC_PREFIX} \
+    -udp-port ${TEMPEST_UDP_PORT} \
+    -log-level ${LOG_LEVEL}
+Restart=always
+RestartSec=5
+TimeoutStopSec=20s
+
+# No account to create: a transient user per run. Binding UDP 50222 and
+# receiving broadcasts need no privileges.
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

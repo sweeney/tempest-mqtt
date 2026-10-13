@@ -228,6 +228,21 @@ Use `-log-level debug` to see every message and publish logged to stderr.
 
 ## Installing as a systemd service
 
+### Deploying to a site (from a Mac)
+
+`deploy/deploy.sh` builds for the host's architecture, installs a system unit enabled for `multi-user.target` (so it starts at boot, with no login or linger), installs `configs/<site>.env` as `/etc/tempest-mqtt/tempest-mqtt.env` if the host has none, and then checks that the unit is active, enabled and publishing live wind. If that check fails, it puts back whatever was installed before.
+
+```bash
+cp deploy/sites.example deploy/sites            # once: your hosts (gitignored)
+deploy/deploy.sh --site schoolhouse --check     # read-only: what would change
+deploy/deploy.sh --site schoolhouse             # shows the plan, asks, then installs
+deploy/deploy.sh --site schoolhouse rollback    # stop and remove (config kept)
+```
+
+The tests for it run against fixtures: `tests/deploy/remote-script.sh` and `tests/deploy/deploy-script.sh`. `home` on garibaldi still runs the older per-user install (`./deploy.sh`, with linger enabled); `deploy/deploy.sh` refuses a host that has one, so both can't end up running.
+
+### By hand
+
 Requires root. Tested on Raspberry Pi OS and Debian/Ubuntu.
 
 ```bash

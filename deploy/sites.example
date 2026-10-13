@@ -1,0 +1,8 @@
+# Sites deploy.sh knows. Copy to deploy/sites (gitignored) and fill in your
+# own hosts; the addresses stay out of the repo.
+#
+#   site      configs/<site>.env
+#   ssh       the host to deploy to
+#
+# site        ssh
+schoolhouse   pi@100.64.0.10

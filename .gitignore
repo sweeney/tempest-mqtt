@@ -9,3 +9,6 @@ coverage.html
 # Environment / secrets
 .env
 tempest-mqtt.env
+
+# Local deploy targets (see deploy/sites.example)
+deploy/sites
