@@ -138,6 +138,21 @@ jobs:
             coverage.txt
           retention-days: 30
 
+  deploy-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax-check the deploy scripts
+        run: for f in deploy.sh deploy/*.sh tests/deploy/*.sh; do bash -n "$f"; done
+
+      # Against fixture roots and shims: nothing is deployed anywhere.
+      - name: deploy/remote.sh against fixtures
+        run: tests/deploy/remote-script.sh
+
+      - name: deploy/deploy.sh with ssh and go shimmed
+        run: tests/deploy/deploy-script.sh
+
   build:
     runs-on: ubuntu-latest
     needs: test

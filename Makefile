@@ -4,6 +4,7 @@ BINARY    := tempest-mqtt
 CMD       := ./cmd/tempest-mqtt
 INSTALL   := /usr/local/bin/$(BINARY)
 SERVICE   := /etc/systemd/system/$(BINARY).service
+ENVFILE   := /etc/$(BINARY)/$(BINARY).env
 LOGIC_PKGS := ./internal/daemon/... ./internal/event/... ./internal/parser/...
 
 ## setup: download dependencies and generate go.sum
@@ -35,15 +36,19 @@ coverage-html: test
 clean:
 	rm -f $(BINARY) coverage.out coverage.html tempest-mqtt-*
 
-## install: build and install the binary + systemd service (requires root)
+## install: build and install the binary + system service, enabled at boot (requires root)
+##          The config is installed from deploy/tempest-mqtt.env.example only if there is none.
 install: build
 	install -m 755 $(BINARY) $(INSTALL)
-	install -m 644 tempest-mqtt.service $(SERVICE)
+	install -m 644 deploy/tempest-mqtt.service $(SERVICE)
+	@if [ -f $(ENVFILE) ]; then echo "Keeping existing $(ENVFILE)"; \
+	else install -d $(dir $(ENVFILE)) && install -m 640 deploy/tempest-mqtt.env.example $(ENVFILE) \
+	  && echo "Installed $(ENVFILE) from the example"; fi
 	systemctl daemon-reload
 	systemctl enable $(BINARY)
-	@echo "Service installed. Edit /etc/tempest-mqtt.env then: systemctl start $(BINARY)"
+	@echo "Service installed and enabled at boot. Edit $(ENVFILE) then: systemctl restart $(BINARY)"
 
-## uninstall: stop and remove the binary + systemd service
+## uninstall: stop and remove the binary + systemd service (the config is kept)
 uninstall:
 	-systemctl stop $(BINARY)
 	-systemctl disable $(BINARY)

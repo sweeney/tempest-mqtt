@@ -65,6 +65,15 @@ out_has() { grep -qF -- "$1" "$STATE/out"; }
 called() { grep -qF -- "$1" "$STATE/calls"; }
 bin_is() { grep -q "# $1" "$ROOT/usr/local/bin/tempest-mqtt"; }
 
+echo "0. every config sets every variable the unit passes as a flag"
+# A missing key would reach the daemon as an empty flag value, not a default.
+unit_vars="$(grep -o '\${[A-Z_]*}' "$SRC/deploy/tempest-mqtt.service" | tr -d '${}' | sort -u)"
+check "the unit uses variables" test -n "$unit_vars"
+for cfg in "$SRC"/configs/*.env "$SRC/deploy/tempest-mqtt.env.example"; do
+  missing=""; for v in $unit_vars; do grep -q "^$v=" "$cfg" || missing="$missing $v"; done
+  check "${cfg#"$SRC/"} has them all${missing:+ (missing:$missing)}" test -z "$missing"
+done
+
 echo "1. --check on a host without tempest-mqtt (not root)"
 new_root check
 run FAKE_UID=1000 -- --check install && pass "exits 0" || fail "failed: $(cat "$STATE/out")"
@@ -79,7 +88,8 @@ new_root inst; answer y
 run -- install && pass "exits 0" || fail "failed: $(cat "$STATE/out")"
 check "binary installed" bin_is v1
 check "config installed from the site's" cmp -s "$SRC/configs/schoolhouse.env" "$ROOT/etc/tempest-mqtt/tempest-mqtt.env"
-check "config not world-readable" bash -c "[ \"\$(stat -f %Lp '$ROOT/etc/tempest-mqtt/tempest-mqtt.env' 2>/dev/null || stat -c %a '$ROOT/etc/tempest-mqtt/tempest-mqtt.env')\" = 640 ]"
+# GNU stat first: on Linux, `stat -f` reports the filesystem and still prints.
+check "config not world-readable" bash -c "[ \"\$(stat -c %a '$ROOT/etc/tempest-mqtt/tempest-mqtt.env' 2>/dev/null || stat -f %Lp '$ROOT/etc/tempest-mqtt/tempest-mqtt.env')\" = 640 ]"
 check "system unit installed" cmp -s "$SRC/deploy/tempest-mqtt.service" "$ROOT/etc/systemd/system/tempest-mqtt.service"
 check "daemon-reload, enable, restart" bash -c "grep -q 'daemon-reload' '$STATE/calls' && grep -q 'enable tempest-mqtt' '$STATE/calls' && grep -q 'restart tempest-mqtt' '$STATE/calls'"
 check "verified enabled at boot" out_has "active, enabled at boot"

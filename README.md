@@ -195,7 +195,7 @@ This lets automations detect if the daemon has crashed or lost network.
 
 ## Configuration
 
-All options are CLI flags. When running as a systemd service they are set via environment variables in `/etc/tempest-mqtt.env`.
+All options are CLI flags. When running as a systemd service they are set via environment variables in `/etc/tempest-mqtt/tempest-mqtt.env` (system service) or `~/.config/tempest-mqtt.env` (the per-user install on home). The unit passes every key as a flag, so each must be present in the file; leave a value empty for none.
 
 | Flag | Env var | Default | Description |
 |---|---|---|---|
@@ -239,33 +239,29 @@ deploy/deploy.sh --site schoolhouse             # shows the plan, asks, then ins
 deploy/deploy.sh --site schoolhouse rollback    # stop and remove (config kept)
 ```
 
-The tests for it run against fixtures: `tests/deploy/remote-script.sh` and `tests/deploy/deploy-script.sh`. `home` on garibaldi still runs the older per-user install (`./deploy.sh`, with linger enabled); `deploy/deploy.sh` refuses a host that has one, so both can't end up running.
+The tests for it run against fixtures, locally and in CI: `tests/deploy/remote-script.sh` and `tests/deploy/deploy-script.sh`. `home` on garibaldi still runs the older per-user install (`./deploy.sh`, with linger enabled); `deploy/deploy.sh` refuses a host that has one, so both can't end up running.
 
 ### By hand
 
 Requires root. Tested on Raspberry Pi OS and Debian/Ubuntu.
 
 ```bash
-# 1. Build and install binary + service file
+# 1. Build and install the binary, deploy/tempest-mqtt.service (enabled at boot),
+#    and /etc/tempest-mqtt/tempest-mqtt.env from deploy/tempest-mqtt.env.example
+#    if there is no config yet
 sudo make install
 
-# 2. Create config (optional — all values have defaults)
-sudo tee /etc/tempest-mqtt.env <<'EOF'
-MQTT_BROKER_URL=tcp://192.168.1.10:1883
-MQTT_USERNAME=myuser
-MQTT_PASSWORD=secret
-TOPIC_PREFIX=home
-LOG_LEVEL=info
-EOF
+# 2. Edit the config: broker, credentials, TOPIC_PREFIX
+sudo editor /etc/tempest-mqtt/tempest-mqtt.env
 
 # 3. Start
-sudo systemctl start tempest-mqtt
+sudo systemctl restart tempest-mqtt
 
 # 4. Check logs
 journalctl -u tempest-mqtt -f
 ```
 
-The service restarts automatically on failure (`Restart=on-failure`, 5 s delay) and starts after `network-online.target` so it won't try to connect to the broker before the network is up.
+The service restarts whenever it exits (`Restart=always`, 5 s delay) and never stops retrying, so a broker that is down at boot only delays it. It starts after `network-online.target`, and after `mosquitto.service` and `tailscaled.service` where those exist. It runs as a transient system user (`DynamicUser`).
 
 The service unit includes a set of systemd hardening directives (`NoNewPrivileges`, `ProtectSystem=strict`, `PrivateTmp`, etc.) that restrict what the process can do even if it were compromised.
 
